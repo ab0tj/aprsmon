@@ -6,6 +6,17 @@
 
 namespace API
 {
+    class ConfigClass
+    {
+        public:
+            std::string listenIP;
+            uint listenPort;
+            std::string signalBotHost;
+            uint signalBotPort;
+    };
+
+    extern ConfigClass* Config;
+
     class SignalContact
     {
         public:
@@ -31,7 +42,7 @@ namespace API
             SignalContact contact;
             uint64_t timeStamp;
             std::string message;
-    }
+    };
 
     class Call
     {
@@ -44,7 +55,7 @@ namespace API
             SignalMessage message;
             std::thread callThread;
             int sockFD;
-    }
+    };
 
     SignalContact getContactByName(std::string n);
 }
