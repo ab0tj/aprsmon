@@ -11,7 +11,7 @@ clean:
 	rm -f aprsmon $(OBJS)
 
 aprsmon: $(OBJS)
-	$(CC) $(OBJS) -o aprsmon
+	$(CC) $(OBJS) -pthread -lfap -o aprsmon
 
 main.o: main.cpp api.h aprs.h config.h
 	$(CC) $(CFLAGS) -o main.o main.cpp

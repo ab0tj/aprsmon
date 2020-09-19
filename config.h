@@ -10,6 +10,7 @@ namespace BaseConfig
         public:
             std::string dbFile;
             bool verbose;
+            bool debug;
             bool foreground;
             ConfigClass(int argc, char *argv[]);
             bool ParseConfigFile();
@@ -19,6 +20,7 @@ namespace BaseConfig
     };
 
     extern BaseConfig::ConfigClass* Config;
+    const std::string versString = "AprsMon 0.1";
 }
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <fap.h>
 #include "api.h"
 
 namespace APRS
@@ -12,8 +13,8 @@ namespace APRS
         public:
             std::string myCall;
             std::string aprsHost;
-            uint aprsPort;
-            int passCode;
+            std::string aprsPort;
+            std::string passCode;
     };
 
     extern ConfigClass* Config;
@@ -44,27 +45,56 @@ namespace APRS
             uint dbPriKey;
     };
 
-    class AprsISStatus
+    class ISStatus
     {
         public:
-            bool connected;
-            time_t lastHeard;
+            enum ConnectionStatus{ Disconnected, Connecting, Connected };
+            ConnectionStatus state;
             std::string filter;
     };
 
-    class AprsISConnection
+    class ISConnection
     {
         public:
-            AprsISConnection(std::string server, std::string call, std::string passcode);
-            ~AprsISConnection();
-            AprsISStatus GetStatus();
+            ISConnection(std::string server, std::string port, std::string call, std::string pass);
+            ~ISConnection();
+            ISStatus GetStatus();
             std::string SendPacket(std::string packet);
-            void AddPacketCallback(void(*cbFunc)(std::string));
+            void RegisterCallback(void(*cbFunc)(std::string));
+            std::thread SocketReader();
+            void SetFilter(std::string f);
 
         private:
-            AprsISStatus status;
+            ISStatus aprsIsStatus;
             int sockFD;
-            std::vector<void *(*)(std::string)> callbacks;
+            std::string aprsHost, aprsPort, aprsCall, aprsPass;
+            std::vector<void(*)(std::string)> callbacks;
+            void SocketReaderLoop();
+            int ReadLine(std::string &line);
+            void Connect();
+    };
+
+    class Packet
+    {
+        public:
+            Packet(std::string t);
+            ~Packet();
+            std::string text;
+            fap_packet_t* packet;
+
+    };
+
+    class Parser
+    {
+        public:
+            Parser();
+            ~Parser();
+            void Parse(Packet &p);
+            const std::string TypeToString(fap_packet_type_t t);
+            const std::string PathToString(char** path, int len);
+            const std::string CommentToString(char* comment, int len);
+            const std::string WxToString(fap_wx_report_t* wx);
+            const std::string TelemetryToString(fap_telemetry_t* t);
     };
 }
 

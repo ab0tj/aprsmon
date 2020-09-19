@@ -18,7 +18,7 @@ namespace BaseConfig
 
         configFile = "/etc/aprsmon.conf";
 
-        while ((opt = getopt(argc, argv, "fvc:")) != -1)
+        while ((opt = getopt(argc, argv, "fvdc:")) != -1)
         {
             switch (opt)
             {
@@ -28,6 +28,10 @@ namespace BaseConfig
 
                 case 'v':
                     verbose = true;
+                    break;
+
+                case 'd':
+                    debug = true;
                     break;
 
                 case 'c':
@@ -43,15 +47,15 @@ namespace BaseConfig
 
         if (reader.ParseError() < 0)
         {
-            std::cout << "Can't load '" << configFile << "'\n";
+            std::cerr << "Can't load '" << configFile << "'\n";
             return false;
         }
 
         Config->dbFile = reader.GetString("main", "db-file", "/etc/aprsmon.db");
         APRS::Config->myCall = reader.GetString("aprs", "mycall", "N0CALL");
-        APRS::Config->passCode = reader.GetInteger("aprs", "passcode", -1);
+        APRS::Config->passCode = reader.GetString("aprs", "passcode", "-1");
         APRS::Config->aprsHost = reader.GetString("aprs", "is-server", "rotate.aprs2.net");
-        APRS::Config->aprsPort = reader.GetInteger("aprs", "is-port", 14580);
+        APRS::Config->aprsPort = reader.GetString("aprs", "is-port", "14580");
         API::Config->listenIP = reader.GetString("api", "listen-ip", "127.0.0.1");
         API::Config->listenPort = reader.GetInteger("api", "listen-port", 9999);
         API::Config->signalBotHost = reader.GetString("api", "signalbot-host", "127.0.0.1");
