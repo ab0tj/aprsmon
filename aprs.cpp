@@ -258,10 +258,10 @@ namespace APRS
     const std::string Parser::CommentToString(char* comment, int len)
     {
         char temp[len+1];
-        memcpy(temp, comment, len);
-        temp[len] = 0;
-        if (temp[len - 2] == '\r') temp[len - 2] = 0;
-        if (temp[len - 1] == '\n') temp[len - 1] = 0;
+        memcpy(&temp, comment, len);
+        temp[len] = '\0';
+        if (temp[len - 2] == '\r') temp[len - 2] = '\0';
+        if (temp[len - 1] == '\n') temp[len - 1] = '\0';
         return std::string(temp);
     }
 
@@ -269,20 +269,20 @@ namespace APRS
     {
         std::stringstream s;
 
-        if (wx->wind_gust) s << "Wind Gust: " << (double)*wx->wind_gust << "m/s ";
-        if (wx->wind_dir) s << "Wind Dir: " << (uint)*wx->wind_gust << "deg ";
-        if (wx->wind_speed) s << "Wind Spd: " << (double)*wx->wind_speed << "m/s ";
-        if (wx->temp) s << "Temp: " << (double)*wx->temp << "C ";
-        if (wx->temp_in) s << "Indoor Temp: " << (double)*wx->temp_in << "C ";
-        if (wx->rain_1h) s << "Rain 1h: " << (double)*wx->rain_1h << "mm ";
-        if (wx->rain_24h) s << "Rain 24h: " << (double)*wx->rain_24h << "mm ";
-        if (wx->rain_midnight) s << "Rain Since Midnight: " << (double)*wx->rain_midnight << "mm ";
-        if (wx->humidity) s << "Humidity: " << (uint)*wx->humidity << "% ";
-        if (wx->humidity_in) s << "Indoor Humidity: " << (uint)*wx->humidity_in << "% ";
-        if (wx->pressure) s << "Pressure: " << (double)*wx->pressure << "mbar ";
-        if (wx->luminosity) s << "Luminosity: " << (uint)*wx->luminosity << "w/m2 ";
-        if (wx->snow_24h) s << "Snow 24h: " << (double)*wx->snow_24h << "mm ";
-        if (wx->soft) s << "Software: " << wx->soft << ' ';
+        if (wx->wind_gust) s << "Wind Gust:" << (double)*wx->wind_gust << "m/s ";
+        if (wx->wind_dir) s << "Wind Dir:" << (uint)*wx->wind_dir << "deg ";
+        if (wx->wind_speed) s << "Wind Spd:" << (double)*wx->wind_speed << "m/s ";
+        if (wx->temp) s << "Temp:" << (double)*wx->temp << "C ";
+        if (wx->temp_in) s << "Indoor Temp:" << (double)*wx->temp_in << "C ";
+        if (wx->rain_1h) s << "Rain 1h:" << (double)*wx->rain_1h << "mm ";
+        if (wx->rain_24h) s << "Rain 24h:" << (double)*wx->rain_24h << "mm ";
+        if (wx->rain_midnight) s << "Rain Since Midnight:" << (double)*wx->rain_midnight << "mm ";
+        if (wx->humidity) s << "Humidity:" << (uint)*wx->humidity << "% ";
+        if (wx->humidity_in) s << "Indoor Humidity:" << (uint)*wx->humidity_in << "% ";
+        if (wx->pressure) s << "Pressure:" << (double)*wx->pressure << "mbar ";
+        if (wx->luminosity) s << "Luminosity:" << (uint)*wx->luminosity << "w/m2 ";
+        if (wx->snow_24h) s << "Snow 24h:" << (double)*wx->snow_24h << "mm ";
+        if (wx->soft) s << "Software:" << wx->soft << ' ';
 
         std::string temp = s.str();
         return temp.substr(0, temp.length() - 1);
@@ -292,11 +292,14 @@ namespace APRS
     {
         std::stringstream s;
 
-        s << "Seq: " << (uint)*t->seq << " ";
-        s << "Values: " << (double)*t->val1 << ',' << (double)*t->val2 << ',' << (double)*t->val3;
-        s << ',' << (double)*t->val4 << ',' << (double)*t->val5 << ' ';
-        s << "Bits: " << t->bits[0] << t->bits[1] << t->bits[2] << t->bits[3] << t->bits[4];
-        s << t->bits[5] << t->bits[6] << t->bits[7];
+        if (t->seq) s << "Seq:" << (uint)*t->seq << ' ';
+        if (t->val1) s << "Val1:" << (double)*t->val1 << ' ';
+        if (t->val2) s << "Val2:" << (double)*t->val2 << ' ';
+        if (t->val3) s << "Val3:" << (double)*t->val3 << ' ';
+        if (t->val4) s << "Val4:" << (double)*t->val4 << ' ';
+        if (t->val5) s << "Val5:" << (double)*t->val5 << ' ';
+        if (t->bits) s << "Bits:" << t->bits[0] << t->bits[1] << t->bits[2] << t->bits[3] << t->bits[4];
+        if (t->bits) s << t->bits[5] << t->bits[6] << t->bits[7];
 
         return s.str();
     }

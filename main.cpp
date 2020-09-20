@@ -30,7 +30,11 @@ int main(int argc, char *argv[])
     std::thread aprsReader = aprsConn->SocketReader();
     aprsConn->SetFilter("b/AB0TJ/AB0JT-13/CEDAR/MAGMTN/BIGJ d/AB0TJ/CEDAR/MAGMTN/BIGJ e/AB0TJ/CEDAR/MAGMTN/BIGJ");
 
+    API::Listener apiListener(API::Config->listenIP, API::Config->listenPort);
+    std::thread apiListenerThread = apiListener.ListenerThread();
+
     aprsReader.join();
+    apiListenerThread.join();
 
     return 0;
 }

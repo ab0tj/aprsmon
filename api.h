@@ -53,8 +53,23 @@ namespace API
         private:
             CallType type;
             SignalMessage message;
+            void CallHandler();
             std::thread callThread;
             int sockFD;
+    };
+
+    class Listener
+    {
+        public:
+            Listener(std::string host, uint port);
+            ~Listener();
+            std::thread ListenerThread();
+
+        private:
+            int sockFD;
+            std::string apiHost;
+            uint apiPort;
+            void ListenerLoop();
     };
 
     SignalContact getContactByName(std::string n);
