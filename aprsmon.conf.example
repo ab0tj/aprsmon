@@ -1,0 +1,8 @@
+[aprs]
+mycall = N0CALL
+passcode = -1
+is-server = rotate.aprs2.net
+
+[database]
+user = aprsmon
+pass = aprsmon
