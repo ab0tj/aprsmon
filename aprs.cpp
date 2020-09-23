@@ -11,6 +11,17 @@
 namespace APRS
 {
     ConfigClass* Config;
+    Parser* aprsParser;
+    ISConnection* Connection;
+
+    ISConnection::ISConnection()
+    {
+        aprsHost = Config->aprsHost;
+        aprsPort = Config->aprsPort;
+        aprsCall = Config->myCall;
+        aprsPass = Config->passCode;
+        aprsIsStatus.state = ISStatus::Disconnected;
+    }
 
     ISConnection::ISConnection(std::string server, std::string port, std::string call, std::string pass)
     {
@@ -119,7 +130,7 @@ namespace APRS
         aprsIsStatus.state = ISStatus::Connected;
     }
 
-    void ISConnection::RegisterCallback(void(*cbFunc)(std::string))
+    void ISConnection::RegisterCallback(void(*cbFunc)(std::string&))
     {
         callbacks.push_back(cbFunc);
     }
@@ -157,7 +168,7 @@ namespace APRS
             {
                 if (line[0] != '#')
                 {
-                    for (void(*cb)(std::string) : callbacks) cb(line);
+                    for (void(*cb)(std::string&) : callbacks) cb(line);
                 }
             }
         }
@@ -190,6 +201,7 @@ namespace APRS
         f.push_back('\n');
         f.insert(0, "#filter ");
         if (aprsIsStatus.state == ISStatus::Connected) send(sockFD, f.c_str(), f.length(), 0);
+        if (BaseConfig::Config->debug) std::cout << "APRS-IS: " << f << '\n';
     }
 
     Parser::Parser()
@@ -313,4 +325,46 @@ namespace APRS
     {
         fap_free(packet);
     }
+
+    Station::Station(std::string callsign)
+    {
+        call = callsign;
+        monitorFlags = 0;
+        dbPriKey = 0;
+        LastDigi = LastHeard = LastIgate = 0;
+        pos.lat = NAN;
+        pos.lon = NAN;
+    }
+
+void DumpPacket(fap_packet_t* pkt)
+{
+    if (pkt->error_code)
+    {
+        char buffer[128];
+        fap_explain_error(*pkt->error_code, buffer);
+        std::cout << "\tError: " << buffer << '\n';
+    }
+    if (pkt->src_callsign) std::cout << "\tCall: " << pkt->src_callsign << '\n';
+    if (pkt->dst_callsign) std::cout << "\tToCall: " << pkt->dst_callsign << '\n';
+    if (pkt->path) std::cout << "\tPath: " << aprsParser->PathToString(pkt->path, pkt->path_len) << '\n';
+    if (pkt->type) std::cout << "\tType: " << aprsParser->TypeToString(*pkt->type) << '\n';
+    if (pkt->latitude) std::cout << "\tLatitude: " << *pkt->latitude << '\n';
+    if (pkt->longitude) std::cout << "\tLongitude: " << *pkt->longitude << '\n';
+    if (pkt->altitude) std::cout << "\tAltitude: " << *pkt->altitude << '\n';
+    if (pkt->course) std::cout << "\tCourse: " << *pkt->course << '\n';
+    if (pkt->speed) std::cout << "\tSpeed: " << *pkt->speed << '\n';
+    if (pkt->message_id) std::cout << "\tMessage ID: " << pkt->message_id << '\n';
+    if (pkt->destination) std::cout << "\tMsgDest: " << pkt->destination << '\n';
+    if (pkt->message) std::cout << "\tMessage: " << pkt->message << '\n';
+    if (pkt->message_ack) std::cout << "\tMessage ACK: " << pkt->message_ack << '\n';
+    if (pkt->message_nack) std::cout << "\tMessage NACK: " << pkt->message_nack << '\n';
+    if (pkt->comment) std::cout << "\tComment: " << aprsParser->CommentToString(pkt->comment, pkt->comment_len) << '\n';
+    if (pkt->object_or_item_name) std::cout << "\tObject/Item Name: " << pkt->object_or_item_name << '\n';
+    if (pkt->timestamp) std::cout << "\tTimestamp: " << *pkt->timestamp << '\n';
+    if (pkt->status) std::cout << "\tStatus: " << aprsParser->CommentToString(pkt->status, pkt->status_len) << '\n';
+    if (pkt->wx_report) std::cout << "\tWX: " << aprsParser->WxToString(pkt->wx_report) << '\n';
+    if (pkt->telemetry) std::cout << "\tTelemetry: " << aprsParser->TelemetryToString(pkt->telemetry) << '\n';
+
+    std::cout << '\n';
+}
 }

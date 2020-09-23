@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <bitset>
 #include <fap.h>
 #include "api.h"
 
@@ -12,6 +13,7 @@ namespace APRS
     {
         public:
             std::string myCall;
+            std::string idCall;
             std::string aprsHost;
             std::string aprsPort;
             std::string passCode;
@@ -19,11 +21,23 @@ namespace APRS
 
     extern ConfigClass* Config;
 
+    enum SubscriptionType
+    {
+        Messages,
+        Telemetry,
+        Weather,
+        Activity,
+        Watchdog,
+        Stats,
+        Position,
+        Digi,
+        Igate,
+        SUBSCRIPTION_TYPE_ITEMS
+    };
     class Subscription
     {
         public:
-            enum SubscriptionType { Telemetry, Weather };
-            Subscription(SubscriptionType t, API::SignalContact c, std::string filterString);
+            Subscription(SubscriptionType t, API::SignalContact c, std::string filterString, uint dbPriKey);
 
         private:
             SubscriptionType type;
@@ -32,6 +46,13 @@ namespace APRS
             uint dbPriKey;
     };
 
+    typedef struct
+    {
+        float lat;
+        float lon;
+    } Position_t;
+
+
     class Station
     {
         public:
@@ -39,10 +60,15 @@ namespace APRS
             void AddSubscription(Subscription s);
             void ProcessPacket(std::string packet);
             std::string call;
+            std::bitset<SUBSCRIPTION_TYPE_ITEMS> monitorFlags;
+            uint dbPriKey;
+            time_t LastHeard;
+            time_t LastDigi;
+            time_t LastIgate;
+            Position_t pos;
 
         private:
             std::vector<Subscription> subscriptions;
-            uint dbPriKey;
     };
 
     class ISStatus
@@ -56,11 +82,12 @@ namespace APRS
     class ISConnection
     {
         public:
+            ISConnection();
             ISConnection(std::string server, std::string port, std::string call, std::string pass);
             ~ISConnection();
             ISStatus GetStatus();
             std::string SendPacket(std::string packet);
-            void RegisterCallback(void(*cbFunc)(std::string));
+            void RegisterCallback(void(*cbFunc)(std::string&));
             std::thread SocketReader();
             void SetFilter(std::string f);
 
@@ -68,7 +95,7 @@ namespace APRS
             ISStatus aprsIsStatus;
             int sockFD;
             std::string aprsHost, aprsPort, aprsCall, aprsPass;
-            std::vector<void(*)(std::string)> callbacks;
+            std::vector<void(*)(std::string&)> callbacks;
             void SocketReaderLoop();
             int ReadLine(std::string &line);
             void Connect();
@@ -81,7 +108,6 @@ namespace APRS
             ~Packet();
             std::string text;
             fap_packet_t* packet;
-
     };
 
     class Parser
@@ -96,6 +122,11 @@ namespace APRS
             const std::string WxToString(fap_wx_report_t* wx);
             const std::string TelemetryToString(fap_telemetry_t* t);
     };
+
+    void DumpPacket(fap_packet_t* pkt);
+
+    extern Parser* aprsParser;
+    extern ISConnection* Connection;
 }
 
 #endif

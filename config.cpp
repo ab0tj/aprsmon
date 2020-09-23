@@ -4,6 +4,7 @@
 #include "config.h"
 #include "api.h"
 #include "aprs.h"
+#include "database.h"
 
 namespace BaseConfig
 {
@@ -13,6 +14,7 @@ namespace BaseConfig
     {
         API::Config = new API::ConfigClass();
         APRS::Config = new APRS::ConfigClass();
+        Database::Config = new Database::ConfigClass();
 
         char opt;
 
@@ -60,6 +62,13 @@ namespace BaseConfig
         API::Config->listenPort = reader.GetInteger("api", "listen-port", 9999);
         API::Config->signalBotHost = reader.GetString("api", "signalbot-host", "127.0.0.1");
         API::Config->signalBotPort = reader.GetInteger("api", "signalbot-port", 9998);
+        Database::Config->dbHost = reader.GetString("database", "host", "127.0.0.1");
+        Database::Config->dbPort = reader.GetInteger("database", "port", 3306);
+        Database::Config->dbSocket = reader.GetString("database", "socket", "/var/run/mysqld/mysqld.sock");
+        Database::Config->dbName = reader.GetString("database", "name", "aprsmon");
+        Database::Config->dbUser = reader.GetString("database", "user", "aprsmon");
+        Database::Config->dbPassword = reader.GetString("database", "pass", "");
+        Database::Config->keep_days = reader.GetInteger("database", "keep_days", 30);
 
         return true;
     }
