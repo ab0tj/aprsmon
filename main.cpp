@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Database::LoadMonitoredStations();
+    Database::Init();
     Packet::SetFilterFromMonitoredCalls();
 
     APRS::aprsParser = new APRS::Parser();
@@ -48,6 +48,11 @@ int main(int argc, char *argv[])
     API::Listener apiListener;
     std::thread apiListenerThread = apiListener.ListenerThread();
 
+    std::thread packetThread(&Packet::PacketThread);
+
+    if (API::Config->adminNotofications) API::Config->admin.Notify("aprsmon started.");
+
+    packetThread.join();
     aprsConnThread.join();
     apiListenerThread.join();
 
@@ -56,5 +61,6 @@ int main(int argc, char *argv[])
 
 void PrintPacket(std::string& text)
 {
+    if (BaseConfig::Config->debug) std::cout << '\n';
     std::cout << text;
 }

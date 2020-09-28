@@ -62,6 +62,9 @@ namespace BaseConfig
         API::Config->listenPort = reader.GetInteger("api", "listen-port", 9999);
         API::Config->signalBotHost = reader.GetString("api", "signalbot-host", "127.0.0.1");
         API::Config->signalBotPort = reader.GetInteger("api", "signalbot-port", 9998);
+        API::Config->adminNotofications = reader.GetBoolean("api", "admin_notifications", false);
+        API::Config->admin.id = reader.GetString("api", "admin_contact_id", "");
+        API::Config->admin.group = reader.GetBoolean("api", "admin_contact_group", false);
         Database::Config->dbHost = reader.GetString("database", "host", "127.0.0.1");
         Database::Config->dbPort = reader.GetInteger("database", "port", 3306);
         Database::Config->dbSocket = reader.GetString("database", "socket", "/var/run/mysqld/mysqld.sock");

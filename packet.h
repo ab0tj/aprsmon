@@ -6,8 +6,10 @@
 namespace Packet
 {
     void Handle(std::string& text);
-    void AddMonitoredStation(APRS::Station s, bool init = false);
+    void AddMonitoredStation(APRS::Station& s, bool init = false);
+    void DelMonitoredStation(std::string s);
     void SetFilterFromMonitoredCalls();
+    void PacketThread();
 }
 
 #endif

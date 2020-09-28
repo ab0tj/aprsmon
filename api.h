@@ -10,6 +10,23 @@ using json = nlohmann::json;
 
 namespace API
 {
+    class SignalContact
+    {
+        public:
+            SignalContact(std::string contactID, bool groupContact, std::string call = "");
+            SignalContact(json &j);
+            SignalContact() = default;
+            std::string callsign;
+            std::string id;
+            bool group;
+            uint dbPriKey;
+            bool Notify(std::string message);
+
+        private:
+            uint GetPriKey();
+    };
+    extern std::unordered_map<std::string, SignalContact> SignalContacts;
+
     class ConfigClass
     {
         public:
@@ -17,29 +34,17 @@ namespace API
             uint listenPort;
             std::string signalBotHost;
             uint signalBotPort;
+            SignalContact admin;
+            bool adminNotofications;
     };
-
     extern ConfigClass* Config;
-
-    class SignalContact
-    {
-        public:
-            SignalContact(std::string contactID, bool groupContact, std::string call = "");
-            SignalContact(json &j);
-            SignalContact() = default;
-            std::string Notify(std::string message);
-            std::string callsign;
-            std::string id;
-            bool group;
-    };
 
     class SignalMessage
     {
         public:
-            SignalMessage(SignalContact c, uint64_t tStamp, std::string msg);
-            SignalMessage(json &j);
-            std::string MarkRead();
-            std::string Send(std::string message);
+            SignalMessage(SignalContact& c, uint64_t tStamp, std::string msg);
+            SignalMessage(json& j);
+            void MarkRead();
             SignalContact contact;
             uint64_t timeStamp;
             std::string message;
@@ -60,7 +65,7 @@ namespace API
             void ListenerLoop();
     };
 
-    SignalContact getContactByName(std::string n);
+    SignalContact ContactLookup(std::string destCall, std::string srcCall = "");
     enum CallType { Invalid, aprStats, aprsMessage, aprsSubscribe, aprsUnsubscribe, modUser };
     enum Error { none, json_error, inv_api_call, param_missing, param_invalid };
 }

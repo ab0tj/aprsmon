@@ -34,12 +34,13 @@ namespace APRS
         Igate,
         SUBSCRIPTION_TYPE_ITEMS
     };
+
+    typedef std::bitset<SUBSCRIPTION_TYPE_ITEMS> subscription_bits;
+
     class Subscription
     {
         public:
-            Subscription(SubscriptionType t, API::SignalContact c, std::string filterString, uint dbPriKey);
-
-        private:
+            Subscription(SubscriptionType t, API::SignalContact c, std::string filterString, uint priKey);
             SubscriptionType type;
             API::SignalContact contact;
             std::string filter;
@@ -52,23 +53,21 @@ namespace APRS
         float lon;
     } Position_t;
 
-
     class Station
     {
         public:
-            Station(std::string callsign);
-            void AddSubscription(Subscription s);
+            Station(std::string callsign = "");
             void ProcessPacket(std::string packet);
             std::string call;
-            std::bitset<SUBSCRIPTION_TYPE_ITEMS> monitorFlags;
+            subscription_bits monitorFlags;
+            subscription_bits stateFlags;
             uint dbPriKey;
-            time_t LastHeard;
-            time_t LastDigi;
-            time_t LastIgate;
+            time_t lastHeard;
+            time_t lastDigi;
+            time_t lastIgate;
             Position_t pos;
-
-        private:
             std::vector<Subscription> subscriptions;
+            API::SignalContact contact;
     };
 
     class ISStatus
@@ -86,7 +85,7 @@ namespace APRS
             ISConnection(std::string server, std::string port, std::string call, std::string pass);
             ~ISConnection();
             ISStatus GetStatus();
-            std::string SendPacket(std::string packet);
+            int Send(std::string& text);
             void RegisterCallback(void(*cbFunc)(std::string&));
             std::thread SocketReader();
             void SetFilter(std::string f);
@@ -110,6 +109,34 @@ namespace APRS
             fap_packet_t* packet;
     };
 
+    class Message
+    {
+        public:
+            Message(std::string& text, API::SignalContact& c);
+            Message(std::string& text, API::SignalContact& c, uint msgId);
+            int Send();
+
+        private:
+            std::string msg;
+            API::SignalContact contact;
+            uint id;
+    };
+
+    enum MsgConduitType { Conduit_Signal, Conduit_APRS };
+
+    class Conversation
+    {
+        public:
+            static Conversation* Get(MsgConduitType con, std::string id);
+            static void Add(MsgConduitType con, std::string call, API::SignalContact& c);
+            static void Remove(MsgConduitType con, std::string id);
+            std::string aprsStn;
+            API::SignalContact signalContact;
+
+        private:
+            Conversation(std::string call, API::SignalContact& c);
+    };
+
     class Parser
     {
         public:
@@ -124,6 +151,8 @@ namespace APRS
     };
 
     void DumpPacket(fap_packet_t* pkt);
+    void AckMsg(fap_packet_t* msg, bool nack = false);
+    void SendMessage(std::string& call, std::string& msg, uint id);
 
     extern Parser* aprsParser;
     extern ISConnection* Connection;

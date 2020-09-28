@@ -38,13 +38,15 @@ namespace Database
             DatabaseConnection();
             DatabaseConnection(std::string host, uint port, std::string user, std::string password, std::string database, std::string socket);
             ~DatabaseConnection();
-            void Execute(Query& q);
+            int Execute(Query& q);
 
         private:
             MYSQL* mysql;
     };
 
-    int LoadMonitoredStations();
+    int Init();
+    void AddMonitoredStation(APRS::Station& s);
+    void DelMonitoredStation(APRS::Station& s);
     const std::string FormatTime(const time_t* t);
 
     extern DatabaseConnection* Connection;

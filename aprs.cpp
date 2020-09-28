@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 #include <unistd.h>
 #include <netdb.h>
 #include <cstring>
@@ -7,12 +8,16 @@
 #include <netinet/tcp.h>
 #include "aprs.h"
 #include "config.h"
+#include "database.h"
 
 namespace APRS
 {
     ConfigClass* Config;
     Parser* aprsParser;
     ISConnection* Connection;
+    uint nextMsgId = 0;
+    std::unordered_map<std::string, std::string> signalConvos;
+    std::unordered_map<std::string, Conversation> aprsConvos;
 
     ISConnection::ISConnection()
     {
@@ -34,7 +39,7 @@ namespace APRS
 
     ISConnection::~ISConnection()
     {
-        close(sockFD);
+        if (sockFD) close(sockFD);
     }
 
     void ISConnection::Connect()
@@ -42,15 +47,11 @@ namespace APRS
         std::string buffer;
         aprsIsStatus.state = ISStatus::Connecting;
 
-        close(sockFD);
+        if (sockFD) close(sockFD);
 
-        struct hostent *host;
-        if ((host = gethostbyname(aprsHost.c_str())) == nullptr)
-        {
-            std::cerr << "APRS-IS: Hostname resolution failure\n";
-            aprsIsStatus.state = ISStatus::Disconnected;
-            return;
-        }
+        Database::Query q("SELECT MAX(IFNULL(ID, 0)) FROM messages");
+        Database::Connection->Execute(q);
+        nextMsgId = std::stoi(mysql_fetch_row(q.result)[0]) + 1;
 
         struct addrinfo hints = {0}, *addrs;
         hints.ai_family = AF_UNSPEC;
@@ -200,8 +201,15 @@ namespace APRS
         aprsIsStatus.filter = f;
         f.push_back('\n');
         f.insert(0, "#filter ");
-        if (aprsIsStatus.state == ISStatus::Connected) send(sockFD, f.c_str(), f.length(), 0);
-        if (BaseConfig::Config->debug) std::cout << "APRS-IS: " << f << '\n';
+        Send(f);
+    }
+
+    int ISConnection::Send(std::string& text)
+    {
+        if (BaseConfig::Config->debug) std::cout << "APRS-IS: Sending: " << text;
+        if (Connection->aprsIsStatus.state != ISStatus::Connected) return -1;
+        int bytes = send(sockFD, text.c_str(), text.size(), 0);
+        return bytes;
     }
 
     Parser::Parser()
@@ -330,41 +338,141 @@ namespace APRS
     {
         call = callsign;
         monitorFlags = 0;
+        stateFlags = 0;
         dbPriKey = 0;
-        LastDigi = LastHeard = LastIgate = 0;
+        lastDigi = lastHeard = lastIgate = 0;
         pos.lat = NAN;
         pos.lon = NAN;
+        contact = API::SignalContact();
     }
 
-void DumpPacket(fap_packet_t* pkt)
-{
-    if (pkt->error_code)
+    Subscription::Subscription(SubscriptionType t, API::SignalContact c, std::string filterString, uint priKey)
     {
-        char buffer[128];
-        fap_explain_error(*pkt->error_code, buffer);
-        std::cout << "\tError: " << buffer << '\n';
+        type = t;
+        contact = c;
+        filter = filterString;
+        dbPriKey = priKey;
     }
-    if (pkt->src_callsign) std::cout << "\tCall: " << pkt->src_callsign << '\n';
-    if (pkt->dst_callsign) std::cout << "\tToCall: " << pkt->dst_callsign << '\n';
-    if (pkt->path) std::cout << "\tPath: " << aprsParser->PathToString(pkt->path, pkt->path_len) << '\n';
-    if (pkt->type) std::cout << "\tType: " << aprsParser->TypeToString(*pkt->type) << '\n';
-    if (pkt->latitude) std::cout << "\tLatitude: " << *pkt->latitude << '\n';
-    if (pkt->longitude) std::cout << "\tLongitude: " << *pkt->longitude << '\n';
-    if (pkt->altitude) std::cout << "\tAltitude: " << *pkt->altitude << '\n';
-    if (pkt->course) std::cout << "\tCourse: " << *pkt->course << '\n';
-    if (pkt->speed) std::cout << "\tSpeed: " << *pkt->speed << '\n';
-    if (pkt->message_id) std::cout << "\tMessage ID: " << pkt->message_id << '\n';
-    if (pkt->destination) std::cout << "\tMsgDest: " << pkt->destination << '\n';
-    if (pkt->message) std::cout << "\tMessage: " << pkt->message << '\n';
-    if (pkt->message_ack) std::cout << "\tMessage ACK: " << pkt->message_ack << '\n';
-    if (pkt->message_nack) std::cout << "\tMessage NACK: " << pkt->message_nack << '\n';
-    if (pkt->comment) std::cout << "\tComment: " << aprsParser->CommentToString(pkt->comment, pkt->comment_len) << '\n';
-    if (pkt->object_or_item_name) std::cout << "\tObject/Item Name: " << pkt->object_or_item_name << '\n';
-    if (pkt->timestamp) std::cout << "\tTimestamp: " << *pkt->timestamp << '\n';
-    if (pkt->status) std::cout << "\tStatus: " << aprsParser->CommentToString(pkt->status, pkt->status_len) << '\n';
-    if (pkt->wx_report) std::cout << "\tWX: " << aprsParser->WxToString(pkt->wx_report) << '\n';
-    if (pkt->telemetry) std::cout << "\tTelemetry: " << aprsParser->TelemetryToString(pkt->telemetry) << '\n';
 
-    std::cout << '\n';
-}
+    Message::Message(std::string& text, API::SignalContact& c)
+    {
+        id = nextMsgId++;
+        if (nextMsgId > 0xFFFFF) nextMsgId = 0;
+        msg = text;
+        contact = c;
+    }
+
+    Message::Message(std::string& text, API::SignalContact& c, uint msgId)
+    {
+        id = msgId;
+        msg = text;
+        contact = c;
+    }
+
+    int Message::Send()
+    {
+        if (msg.length() > 67) return -1;
+
+        Database::Query q("INSERT INTO messages (ID, Dest, ContactFID, Message) VALUES (");
+        q.text += std::to_string(id) + ", '" + contact.callsign + "', " + std::to_string(contact.dbPriKey) + ", '" + msg + "') ";
+        Database::Connection->Execute(q);
+
+        SendMessage(contact.callsign, msg, id);
+        return id;
+    }
+
+    void SendMessage(std::string& call, std::string& msg, uint id)
+    {
+        std::stringstream ss;
+        ss << Config->myCall << ">APRS::" << std::setw(9) << std::left << call;
+        ss << std::setw(0) << ':' << msg << '{' << std::hex << id << "\r\n";
+        std::string text = ss.str();
+        Connection->Send(text);
+    }
+
+    Conversation::Conversation(std::string call, API::SignalContact& c)
+    {
+        aprsStn = call;
+        signalContact = c;
+    }
+
+    void Conversation::Add(MsgConduitType con, std::string call, API::SignalContact& c)
+    {
+        Conversation conv(call, c);
+
+        Remove(con, call);
+        aprsConvos.emplace(call, conv);
+        signalConvos.emplace(c.id, call);
+    }
+
+    void Conversation::Remove(MsgConduitType con, std::string id)
+    {
+        if (con == Conduit_APRS)
+        {
+            auto it = aprsConvos.find(id);
+            if (it == aprsConvos.end()) return;
+            signalConvos.erase(it->second.signalContact.id);
+            aprsConvos.erase(id);
+        }
+        else
+        {
+            auto it = signalConvos.find(id);
+            if (it == signalConvos.end()) return;
+            aprsConvos.erase(signalConvos.at(id));
+            signalConvos.erase(id);
+        }
+    }
+
+    Conversation* Conversation::Get(MsgConduitType con, std::string id)
+    {
+        if (con == Conduit_APRS)
+        {
+            if (aprsConvos.find(id) == aprsConvos.end()) return NULL;
+            return &aprsConvos.at(id);
+        }
+        else
+        {
+            if (signalConvos.find(id) == signalConvos.end()) return NULL;
+            return &aprsConvos.at(signalConvos.at(id));
+        }
+    }
+
+    void DumpPacket(fap_packet_t* pkt)
+    {
+        if (pkt->error_code)
+        {
+            char buffer[128];
+            fap_explain_error(*pkt->error_code, buffer);
+            std::cout << "\tError: " << buffer << '\n';
+        }
+        if (pkt->src_callsign) std::cout << "\tCall: " << pkt->src_callsign << '\n';
+        if (pkt->dst_callsign) std::cout << "\tToCall: " << pkt->dst_callsign << '\n';
+        if (pkt->path) std::cout << "\tPath: " << aprsParser->PathToString(pkt->path, pkt->path_len) << '\n';
+        if (pkt->type) std::cout << "\tType: " << aprsParser->TypeToString(*pkt->type) << '\n';
+        if (pkt->latitude) std::cout << "\tLatitude: " << *pkt->latitude << '\n';
+        if (pkt->longitude) std::cout << "\tLongitude: " << *pkt->longitude << '\n';
+        if (pkt->altitude) std::cout << "\tAltitude: " << *pkt->altitude << '\n';
+        if (pkt->course) std::cout << "\tCourse: " << *pkt->course << '\n';
+        if (pkt->speed) std::cout << "\tSpeed: " << *pkt->speed << '\n';
+        if (pkt->message_id) std::cout << "\tMessage ID: " << pkt->message_id << '\n';
+        if (pkt->destination) std::cout << "\tMsgDest: " << pkt->destination << '\n';
+        if (pkt->message) std::cout << "\tMessage: " << pkt->message << '\n';
+        if (pkt->message_ack) std::cout << "\tMessage ACK: " << pkt->message_ack << '\n';
+        if (pkt->message_nack) std::cout << "\tMessage NACK: " << pkt->message_nack << '\n';
+        if (pkt->comment) std::cout << "\tComment: " << aprsParser->CommentToString(pkt->comment, pkt->comment_len) << '\n';
+        if (pkt->object_or_item_name) std::cout << "\tObject/Item Name: " << pkt->object_or_item_name << '\n';
+        if (pkt->timestamp) std::cout << "\tTimestamp: " << *pkt->timestamp << '\n';
+        if (pkt->status) std::cout << "\tStatus: " << aprsParser->CommentToString(pkt->status, pkt->status_len) << '\n';
+        if (pkt->wx_report) std::cout << "\tWX: " << aprsParser->WxToString(pkt->wx_report) << '\n';
+        if (pkt->telemetry) std::cout << "\tTelemetry: " << aprsParser->TelemetryToString(pkt->telemetry) << '\n';
+    }
+
+    void AckMsg(fap_packet_t* msg, bool nack)
+    {
+        std::stringstream ack;
+        ack << Config->myCall << ">APRS::" ;
+        ack << std::setw(9) << std::left << msg->src_callsign << std::setw(0) << (nack ? ":rej" : ":ack") << msg->message_id << "\r\n";
+        std::string text = ack.str();
+        Connection->Send(text);
+    }
 }

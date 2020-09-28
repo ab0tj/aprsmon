@@ -15,6 +15,7 @@ namespace BaseConfig
             ConfigClass(int argc, char *argv[]);
             bool ParseConfigFile();
 
+
         private:
             std::string configFile;
     };
